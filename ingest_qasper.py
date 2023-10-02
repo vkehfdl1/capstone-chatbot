@@ -36,7 +36,7 @@ class IngestQasper:
         ids = []
         embeddings = []
         for idx, doi in enumerate(tqdm(list(self.data.keys()))):
-            if idx > 10:
+            if idx > 10:  # for testing. Need to delete for full ingestion
                 break
             full_text = self.data[doi]['full_text']
             for text in full_text:
