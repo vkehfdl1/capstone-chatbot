@@ -2,7 +2,6 @@ import os
 from typing import Optional
 
 import chromadb
-import openai
 from dotenv import load_dotenv
 
 from ingest_qasper import IngestQasper
@@ -15,10 +14,9 @@ class RetrievalQasper:
         self.client = chromadb.PersistentClient(path=chroma_dir)
         self.collection = self.client.get_collection(name=chroma_collection_name)
         load_dotenv()
-        openai.api_key = os.getenv('OPENAI_API_KEY')
 
     def query(self, query: str, n_results: int = 5, doi: Optional[str] = None):
-        query_vector = IngestQasper.embed_openai(query)
+        query_vector = IngestQasper.embed_huggingface(query)
         if doi is None:
             result = self.collection.query(
                 query_embeddings=[query_vector],

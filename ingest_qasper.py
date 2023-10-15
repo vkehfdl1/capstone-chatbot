@@ -2,6 +2,7 @@ import json
 import os
 from typing import List
 
+from langchain.embeddings import HuggingFaceEmbeddings
 from tqdm import tqdm
 import click
 
@@ -44,7 +45,7 @@ class IngestQasper:
                 paragraphs: List[str] = text['paragraphs']
                 for i, paragraph in enumerate(paragraphs):
                     paragraph_id = f'{doi}_{section_name}_{i}'
-                    embed_vectors = self.embed_openai(paragraph)
+                    embed_vectors = self.embed_huggingface(paragraph)
                     documents.append(paragraph)
                     embeddings.append(embed_vectors)
                     ids.append(paragraph_id)
@@ -65,6 +66,13 @@ class IngestQasper:
             input=sentence
         )
         return response['data'][0]['embedding']
+
+    @staticmethod
+    def embed_huggingface(sentence: str,
+                          model_name: str = "intfloat/multilingual-e5-large") -> List[float]:
+        embeddings = HuggingFaceEmbeddings(model_name=model_name, model_kwargs={"device": "mps"})
+        result = embeddings.embed_query(text=sentence)
+        return result
 
 
 @click.command()
