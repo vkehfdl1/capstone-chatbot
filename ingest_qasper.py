@@ -13,10 +13,6 @@ from dotenv import load_dotenv
 
 class IngestQasper:
     def __init__(self, qasper_path: str, chroma_dir: str):
-        load_dotenv(verbose=False)
-        if not os.getenv('OPENAI_API_KEY'):
-            raise ValueError("OPENAI_API_KEY is not set")
-        openai.api_key = os.getenv('OPENAI_API_KEY')
         if not os.path.exists(qasper_path):
             raise ValueError(f"{qasper_path} is not exist")
         self.data = self.load_qasper(qasper_path)
@@ -25,6 +21,8 @@ class IngestQasper:
         self.client = chromadb.PersistentClient(path=chroma_dir)
         self.collection_name = 'qasper'
         self.collection = self.client.get_or_create_collection(name=self.collection_name)
+        self.embedding = HuggingFaceEmbeddings(model_name="intfloat/multilingual-e5-large",
+                                               model_kwargs={"device": "cuda"})
 
     def load_qasper(self, qasper_path: str):
         with open(qasper_path, 'rb') as r:
@@ -35,21 +33,23 @@ class IngestQasper:
         documents = []
         metadatas = []
         ids = []
-        embeddings = []
         for idx, doi in enumerate(tqdm(list(self.data.keys()))):
-            if idx > 10:  # for testing. Need to delete for full ingestion
-                break
             full_text = self.data[doi]['full_text']
             for text in full_text:
                 section_name = text['section_name']
                 paragraphs: List[str] = text['paragraphs']
                 for i, paragraph in enumerate(paragraphs):
                     paragraph_id = f'{doi}_{section_name}_{i}'
-                    embed_vectors = self.embed_huggingface(paragraph)
                     documents.append(paragraph)
-                    embeddings.append(embed_vectors)
                     ids.append(paragraph_id)
+                    assert doi is not None
+                    if section_name is None:
+                        section_name = 'Empty Section Name'
+                    assert section_name is not None
                     metadatas.append({'doi': doi, 'section_name': section_name})
+
+        embeddings = self.embedding.embed_documents(texts=documents)
+        assert len(documents) == len(ids) == len(metadatas) == len(embeddings)
 
         # save to chroma
         self.collection.add(
@@ -66,13 +66,6 @@ class IngestQasper:
             input=sentence
         )
         return response['data'][0]['embedding']
-
-    @staticmethod
-    def embed_huggingface(sentence: str,
-                          model_name: str = "intfloat/multilingual-e5-large") -> List[float]:
-        embeddings = HuggingFaceEmbeddings(model_name=model_name, model_kwargs={"device": "mps"})
-        result = embeddings.embed_query(text=sentence)
-        return result
 
 
 @click.command()
