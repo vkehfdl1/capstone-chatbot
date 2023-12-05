@@ -4,3 +4,5 @@ chromadb
 python-dotenv
 langchain
 sentence-transformers
+RAGchain~=0.2.0
+gradio
